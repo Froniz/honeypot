@@ -34,11 +34,17 @@ export async function channelWarmerExperiment(api: API | API2, guildId: string, 
             flags: MessageFlags.SuppressNotifications,
         }
     );
-    await api.channels.deleteMessage(
-        channelId,
-        msg.id,
-        { reason: "Channel warmer experiment" }
-    );
+    try {
+        await api.channels.deleteMessage(channelId, msg.id);
+    } catch (err) {
+        if (err instanceof DiscordAPIError && err.code === RESTJSONErrorCodes.UnknownMessage) {
+            // message may not have replicated to all of discord's edges yet, so wait and retry once
+            await Bun.sleep(30 * 1000);
+            await api.channels.deleteMessage(channelId, msg.id);
+        } else {
+            throw err;
+        }
+    }
 }
 
 export async function randomChannelNameExperiment(api: API | API2, guildId: string, channelId: string, isChaos = false) {
