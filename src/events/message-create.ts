@@ -137,7 +137,7 @@ const onMessage = async (
 
         const moderatedCount = await db.getModeratedCount(guildId, channels.length > 1 ? matchedChannel.channel_id : null);
         await Promise.all([
-            logMessage(api, db, config, userId, guildId, matchedChannel, customMessages.log_message, moderatedCount, failed, permissionSkip, fullUser, fullMember),
+            logMessage(api, db, config, userId, guildId, matchedChannel, customMessages.log_message, moderatedCount, failed, permissionSkip, fullUser, fullMember, messageId),
             updateWarning(api, db, config, matchedChannel, moderatedCount, customMessages.warning_message, guildId),
             HAS_MESSAGE_INTENT && config.experiments.includes("ensure-msg-delete") && failed === false
                 ? addToEnsureMsgDeleteQueue(userId, guildId, redis) : null,
@@ -306,13 +306,17 @@ async function maybeForwardMessage(api: API | API2, guildId: string, channelId: 
             channel_id: channelId,
             message_id: messageId,
             guild_id: guildId,
-        }
+        },
+        nonce: Bun.hash(`${messageId}:forward`).toString(16),
+        enforce_nonce: true,
     }, { signal: preActionAbort }).catch(err => {
         const discordApiError = err instanceof DiscordAPIError ? err : null;
         if (discordApiError && discordApiError.code === RESTJSONErrorCodes.CannotReferenceAMessageWithoutPermissionToReadMessageHistory) {
             api.channels.createMessage(config.log_channel_id!, {
                 content: `Would forward https://discord.com/channels/${guildId}/${channelId}/${messageId}, but the bot doesn't have permission to Read Message History in that channel.`,
                 allowed_mentions: {},
+                nonce: Bun.hash(`${messageId}:forward-permission-warning`).toString(16),
+                enforce_nonce: true,
             }).catch(err => console.log(styleText("dim", `Failed to send message about missing permissions to forward to log channel: ${err}`)));
             console.log(styleText("dim", `Failed to forward message to log channel: ${err}`));
         } else if (discordApiError && discordApiError.message.includes("MESSAGE_REFERENCE_UNKNOWN_MESSAGE")) {
@@ -386,7 +390,11 @@ async function maybeDmMember(
             permissionSkip !== false,
             customMessage
         );
-        return await api.channels.createMessage(dmChannel, dmContent, { signal: preActionAbort });
+        return await api.channels.createMessage(dmChannel, {
+            nonce: Bun.hash(`${messageId || Date.now()}:dm`).toString(16),
+            enforce_nonce: true,
+            ...dmContent
+        }, { signal: preActionAbort });
     } catch (err) {
         if (`${err}` === "AbortError: The operation was aborted." || `${err}` === "Error: Request aborted manually") {
             console.log(styleText("dim", `Failed to send DM to user: ${err}`));
@@ -412,13 +420,16 @@ async function logMessage(
     failed: false | "permissions" | "admin" | "unban" | true,
     permissionSkip: "owner" | "admin" | false,
     fullUser?: APIUser,
-    fullMember?: PartialAPIMessageInteractionGuildMember
+    fullMember?: PartialAPIMessageInteractionGuildMember,
+    messageId?: string
 ) {
     if (!config.log_channel_id && !permissionSkip && !failed) return;
+    const nonce = Bun.hash(`${messageId || Date.now()}:log`).toString(16);
 
     try {
         if (config.log_channel_id && !failed && !permissionSkip) {
             await api.channels.createMessage(config.log_channel_id, {
+                nonce, enforce_nonce: true,
                 ...logActionMessage(fullUser || { id: userId }, fullMember || null, matchedChannel.channel_id, config.action, customMessage, moderatedCount),
                 allowed_mentions: { parse: [AllowedMentionsTypes.User] },
             });
@@ -426,11 +437,13 @@ async function logMessage(
             await api.channels.createMessage(config.log_channel_id || matchedChannel.channel_id, {
                 content: `⚠️ User <@${userId}> triggered the honeypot, but they are ${permissionSkip === "owner" ? "the **server owner** so I cannot" : "a **server admin** so I won't"} ${config.action} them.\n-# In anycase **ensure my role is higher** than people's highest role and that I have **ban members** permission so I can ${config.action} for actual cases.`,
                 allowed_mentions: { users: [userId], roles: [] },
+                nonce, enforce_nonce: true,
             });
         } else if (failed === "unban" && config.action === "softban") {
             await api.channels.createMessage(config.log_channel_id || matchedChannel.channel_id, {
                 content: `⚠️ User <@${userId}> triggered the honeypot, but I failed to **fully** softban them.\n-# They may still be banned but you can manually unban them in server settings.`,
                 allowed_mentions: { users: [userId], roles: [] },
+                nonce, enforce_nonce: true,
             });
         } else if (failed === "permissions") {
             await api.channels.createMessage(config.log_channel_id || matchedChannel.channel_id, {
@@ -454,11 +467,13 @@ async function logMessage(
                         }
                     }],
                 allowed_mentions: { users: [userId], roles: [] },
+                nonce, enforce_nonce: true,
             });
         } else if (failed) {
             await api.channels.createMessage(config.log_channel_id || matchedChannel.channel_id, {
                 content: `⚠️ User <@${userId}> triggered the honeypot, but I **failed** to ${config.action} them.\n-# This could be due to a transient Discord issue, or something unexpected. Please check my permissions in any case.`,
                 allowed_mentions: { users: [userId], roles: [] },
+                nonce, enforce_nonce: true,
             });
         }
     } catch (err) {

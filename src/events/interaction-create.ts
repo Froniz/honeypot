@@ -418,6 +418,8 @@ const handler: EventHandler<GatewayDispatchEvents.InteractionCreate> = {
                             api.channels.createMessage(newConfig.log_channel_id || id, {
                                 content: `There was a problem sending a message to the <#${id}> channel for the "Channel Warmer" experiment. Please check my permissions.`,
                                 allowed_mentions: {},
+                                nonce: Bun.hash(`${id}:channel-warmer-test`).toString(16),
+                                enforce_nonce: true,
                             }).catch(() => null);
                         }
                     }
@@ -433,6 +435,8 @@ const handler: EventHandler<GatewayDispatchEvents.InteractionCreate> = {
                             api.channels.createMessage(newConfig.log_channel_id || id, {
                                 content: `There was a problem updating the <#${id}> channel for the "Random Channel Name" experiment. Please check my permissions.`,
                                 allowed_mentions: {},
+                                nonce: Bun.hash(`${id}:random-channel-name-test`).toString(16),
+                                enforce_nonce: true,
                             }).catch(() => null);
                         }
                     }

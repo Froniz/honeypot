@@ -21,7 +21,7 @@ const handler: EventHandler<GatewayDispatchEvents.GuildCreate> = {
             setGuildInfoCache(guild.id, guild, redis);
 
             // if we already have config for this server, don't try to recreate (every bot restart creates this event) 
-            let config = await db.getConfig(guild.id);
+            const config = await db.getConfig(guild.id);
             if (config) return;
 
             let channelId = null as null | string;
@@ -70,7 +70,9 @@ const handler: EventHandler<GatewayDispatchEvents.GuildCreate> = {
                 try {
                     await api.channels.createMessage(guild.system_channel_id, {
                         content: `👋 Thanks for adding the honeypot bot! Please run /honeypot to finish setup.\n-# The bot couldn’t create or send the warning message automatically.`,
-                        allowed_mentions: {}
+                        allowed_mentions: {},
+                        nonce: Bun.hash(`${guild.id}:setup-failed`).toString(16),
+                        enforce_nonce: true,
                     });
                 } catch (err) {
                     if (err instanceof DiscordAPIError && (err.code === RESTJSONErrorCodes.MissingAccess || err.code === RESTJSONErrorCodes.MissingPermissions)) {
@@ -153,7 +155,7 @@ async function postWarning(api: API | API2, channelId: string, applicationId: st
             await api.channels.editMessage(channelId, first.id, honeypotWarningMessage(moderatedCount, action));
             await Promise.allSettled(rest.map(msg => api.channels.deleteMessage(channelId, msg.id, { reason: "Removing duplicate honeypot messages" })));
             return first.id;
-        } catch (err) {
+        } catch {
             const msg = await api.channels.createMessage(channelId, honeypotWarningMessage(moderatedCount, action));
             await Promise.allSettled(botMessages.map(msg => api.channels.deleteMessage(channelId, msg.id, { reason: "Removing duplicate honeypot messages" })));
             return msg.id;
@@ -180,6 +182,8 @@ async function sendIntroMessage(api: API | API2, redis: Bun.RedisClient | undefi
 
     const { id: msgId } = await api.channels.createMessage(channelId, {
         flags: MessageFlags.SuppressNotifications | MessageFlags.IsComponentsV2,
+        nonce: Bun.hash(`${channelId}:intro-message`).toString(16),
+        enforce_nonce: true,
         components: [
             {
                 type: ComponentType.TextDisplay,
@@ -246,6 +250,8 @@ async function checkSetupAndWarn(api: API | API2, channelId: string, application
         if (!canEveryoneAttachFiles) content += "\n- The @everyone role can’t attach files here, which means many spam bots that use attachments won’t be caught";
 
         const msg = await api.channels.createMessage(channelId!, {
+            nonce: Bun.hash(`${channelId}:setup-warning`).toString(16),
+            enforce_nonce: true,
             components: [
                 {
                     type: ComponentType.Container,

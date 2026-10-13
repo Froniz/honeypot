@@ -26,14 +26,13 @@ function currentShardUTC(now = new Date()): number {
 }
 
 export async function channelWarmerExperiment(api: API | API2, guildId: string, channelId: string) {
-    const msg = await api.channels.createMessage(
-        channelId,
-        {
-            content: `Keeping the honeypot channel active! ${CUSTOM_EMOJI}`,
-            allowed_mentions: {},
-            flags: MessageFlags.SuppressNotifications,
-        }
-    );
+    const msg = await api.channels.createMessage(channelId, {
+        content: `Keeping the honeypot channel active! ${CUSTOM_EMOJI}`,
+        allowed_mentions: {},
+        flags: MessageFlags.SuppressNotifications,
+        nonce: Bun.hash(`${channelId}:channel-warmer`).toString(16),
+        enforce_nonce: true,
+    });
     try {
         await api.channels.deleteMessage(channelId, msg.id);
     } catch (err) {
@@ -89,7 +88,11 @@ async function channelRecreateExperiment(api: API | API2, guildId: string, chann
     try {
         if (!config.experiments.includes("no-warning-msg")) {
             const messageBody = honeypotWarningMessage(channelModerated, config?.action || 'softban', warningMessage);
-            const msg = await api.channels.createMessage(newChannel.id, messageBody);
+            const msg = await api.channels.createMessage(newChannel.id, {
+                nonce: Bun.hash(`${newChannel.id}:channel-recreate-warning`).toString(16),
+                enforce_nonce: true,
+                ...messageBody
+            });
             msgId = msg.id;
         } else {
             // just so it has has actually had a message there
@@ -97,6 +100,8 @@ async function channelRecreateExperiment(api: API | API2, guildId: string, chann
                 content: `New honeypot channel! ${CUSTOM_EMOJI}`,
                 allowed_mentions: {},
                 flags: MessageFlags.SuppressNotifications,
+                nonce: Bun.hash(`${newChannel.id}:channel-recreate-warning`).toString(16),
+                enforce_nonce: true,
             });
             await api.channels.deleteMessage(newChannel.id, msg.id).catch(() => { });
         }
@@ -116,6 +121,8 @@ async function channelRecreateExperiment(api: API | API2, guildId: string, chann
                 content: `⚠️ This channel was supposed to be deleted and replaced with <#${newChannel.id}> for the "Channel Recreate" experiment, but I was unable to delete it. This is no longer a watched honeypot channel.`,
                 allowed_mentions: {},
                 flags: MessageFlags.SuppressNotifications,
+                nonce: Bun.hash(`${newChannel.id}:channel-recreate-delete-failed`).toString(16),
+                enforce_nonce: true,
             }).catch(() => { });
         }
     }
@@ -159,6 +166,8 @@ const cron: Cron = {
                             await api.channels.createMessage(config.log_channel_id, {
                                 content: `⚠️ There was a problem sending a message to the <#${channel.channel_id}> channel for the "Channel Warmer" experiment. Please check my permissions.`,
                                 allowed_mentions: {},
+                                nonce: Bun.hash(`${channel.channel_id}:channel-warmer-failed`).toString(16),
+                                enforce_nonce: true,
                             }).catch(err => {
                                 const discordErrorCode = err instanceof DiscordAPIError ? err.code : null;
                                 if (discordErrorCode === RESTJSONErrorCodes.MissingAccess || discordErrorCode === RESTJSONErrorCodes.MissingPermissions) {
@@ -210,6 +219,8 @@ const cron: Cron = {
                             await api.channels.createMessage(config.log_channel_id || channel.channel_id, {
                                 content: `⚠️ There was a problem updating the <#${channel.channel_id}> channel for the "Random Channel Name" experiment. Please check my permissions.`,
                                 allowed_mentions: {},
+                                nonce: Bun.hash(`${channel.channel_id}:random-channel-name-failed`).toString(16),
+                                enforce_nonce: true,
                             }).catch(err => {
                                 const discordErrorCode = err instanceof DiscordAPIError ? err.code : null;
                                 if (discordErrorCode === RESTJSONErrorCodes.MissingAccess || discordErrorCode === RESTJSONErrorCodes.MissingPermissions) {
@@ -255,6 +266,8 @@ const cron: Cron = {
                         await api.channels.createMessage(config.log_channel_id || channel.channel_id, {
                             content: `⚠️ There was a problem recreating the <#${channel.channel_id}> channel for the "Channel Recreate" experiment. Please check my permissions - A common issue is permission overwrites that the bot may not have to create itself as a member.`,
                             allowed_mentions: {},
+                            nonce: Bun.hash(`${channel.channel_id}:channel-recreate-failed`).toString(16),
+                            enforce_nonce: true,
                         }).catch(err => {
                             const discordErrorCode = err instanceof DiscordAPIError ? err.code : null;
                             if (discordErrorCode === RESTJSONErrorCodes.MissingAccess || discordErrorCode === RESTJSONErrorCodes.MissingPermissions) {
