@@ -250,30 +250,6 @@ export function statsMessage(globalStatsText: string, serverStatsText: string | 
             type: ComponentType.TextDisplay,
             content: "When a message is sent to the honeypot channel, Honeypot can automatically remove the user by banning or kicking them.",
           },
-          {
-            type: ComponentType.ActionRow,
-            components: [
-              {
-                type: ComponentType.Button,
-                url: "https://discord.com/oauth2/authorize?client_id=1450060292716494940",
-                style: ButtonStyle.Link,
-                label: "Invite Bot",
-                emoji: { name: "honeypot", id: CUSTOM_EMOJI_ID }
-              },
-              {
-                type: ComponentType.Button,
-                url: "https://honeypot.riskymh.dev/docs",
-                style: ButtonStyle.Link,
-                label: "Documentation"
-              },
-              {
-                type: ComponentType.Button,
-                url: "https://honeypot.riskymh.dev",
-                style: ButtonStyle.Link,
-                label: "honeypot.riskymh.dev"
-              },
-            ]
-          },
         ],
       },
       {
