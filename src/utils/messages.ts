@@ -287,7 +287,7 @@ export function statsMessage(globalStatsText: string, serverStatsText: string | 
                   "Somehow, people are still finding the honeypot.",
                 ][Math.floor(Math.random() * 4)]}`,
               }
-            ],
+            ]
           },
         ],
       },
