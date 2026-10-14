@@ -83,7 +83,7 @@ export function honeypotUserDMMessage(userId: string, action: HoneypotConfig["ac
           {
             type: ComponentType.TextDisplay,
             content: `## Honeypot Triggered\nHey <@${userId}>, you have been **${actionText}** from **${discoverableLink ? `[${guildName}](${discoverableLink})` : guildName}** for sending a message in the [honeypot](${link}) channel.`
-              + "\n\nThis may have happened if someone gained access to your account through malware, stolen sessions or leaked passwords. Please [recover your account](https://honeypot.riskymh.dev/blog/discord-account-hacked-recovery), scan your device and reinstall your OS if needed."
+              + "\n\nThis may have happened if someone gained access to your account through malware, stolen sessions or leaked passwords, scan your device and reinstall your OS if needed."
           },
           ...(reinviteUrl ? [{
             type: ComponentType.TextDisplay,
@@ -140,7 +140,7 @@ export function honeypotUserDMMessage(userId: string, action: HoneypotConfig["ac
 }
 
 export const defaultHoneypotUserDMMessage = "## Honeypot Triggered\n\nHey {{user:mention}}, you have been **{{action:text}}** from **{{server:name}}** for sending a message in the [honeypot]({{honeypot:channel:link}}) channel."
-  + "\n\nThis may have happened if someone gained access to your account through malware, stolen sessions or leaked passwords. Please [recover your account](https://honeypot.riskymh.dev/blog/discord-account-hacked-recovery), scan your device and reinstall your OS if needed.";
+  + "\n\nThis may have happened if someone gained access to your account through malware, stolen sessions or leaked passwords, scan your device and reinstall your OS if needed.";
 export const defaultHoneypotUserDMMessageReinvitePart = "\n\nYou can rejoin via {{reinvite:link}}";
 
 export function logActionMessage(user: Partial<APIUser> & { id: string }, member: PartialAPIMessageInteractionGuildMember | null, honeypotChannelId: string, action: HoneypotConfig["action"], customText?: string | null, moderatedCount: number = 0): RESTPostAPIChannelMessageJSONBody {
@@ -288,12 +288,6 @@ export function statsMessage(globalStatsText: string, serverStatsText: string | 
                 ][Math.floor(Math.random() * 4)]}`,
               }
             ],
-            accessory: {
-              type: ComponentType.Button,
-              url: "https://honeypot.riskymh.dev/#stats",
-              style: ButtonStyle.Link,
-              label: "Live Stats"
-            }
           },
         ],
       },
